@@ -1,21 +1,3 @@
-// package com.tns.onlineshopping.services;
-
-// import com.tns.onlineshopping.entities.Admin;
-// import java.util.ArrayList;
-// import java.util.List;
-
-// public class AdminService {
-//     private List<Admin> adminList = new ArrayList<>();
-
-//     public void addAdmin(Admin admin) {
-//         adminList.add(admin);
-//     }
-
-//     public List<Admin> getAdmins() {
-//         return adminList;
-//     }
-// }
-
 package com.tns.onlineshopping.services;
 
 import com.tns.onlineshopping.entities.Admin;
@@ -27,20 +9,13 @@ public class AdminService {
 
     public void addAdmin(Admin admin) {
         try (Connection conn = DBConnection.getConnection()) {
-            // Add to Users table
             PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO Users (userId, username, email, userType) VALUES (?, ?, ?, ?)");
+                "INSERT INTO users (userId, username, email, userType) VALUES (?, ?, ?, ?)");
             ps.setInt(1, admin.getUserId());
             ps.setString(2, admin.getUsername());
             ps.setString(3, admin.getEmail());
-            ps.setString(4, "Admin");
+            ps.setString(4, "Admin"); // Mark user as Admin, not Customer
             ps.executeUpdate();
-
-            // Add to Admins table (optional, if you created it separately)
-            // PreparedStatement ps2 = conn.prepareStatement(
-            //     "INSERT INTO Admins (userId) VALUES (?)");
-            // ps2.setInt(1, admin.getUserId());
-            // ps2.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -49,7 +24,8 @@ public class AdminService {
     public List<Admin> getAdmins() {
         List<Admin> admins = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT * FROM Users WHERE userType = 'Admin'");
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT userId, username, email FROM users WHERE userType = 'Admin'");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 admins.add(new Admin(
@@ -63,4 +39,3 @@ public class AdminService {
         return admins;
     }
 }
-

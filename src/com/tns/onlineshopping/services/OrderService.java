@@ -1,60 +1,3 @@
-// package com.tns.onlineshopping.services;
-
-// import com.tns.onlineshopping.entities.Order;
-// import com.tns.onlineshopping.entities.Product;
-// import com.tns.onlineshopping.entities.ProductQuantityPair;
-// import java.util.ArrayList;
-// import java.util.List;
-
-// public class OrderService {
-//     private List<Order> orderList = new ArrayList<>();
-//     private int nextOrderId = 1;  // Auto-increment for order IDs
-
-//     public void placeOrder(Order order) {
-//         order.setOrderId(nextOrderId++);
-//         orderList.add(order);
-//     }
-
-//     public void updateOrderStatus(int orderId, String status) {
-//         Order order = getOrder(orderId);
-//         if (order != null) {
-//             if ("Completed".equalsIgnoreCase(status) && "Pending".equalsIgnoreCase(order.getStatus())) {
-//                 for (ProductQuantityPair pair : order.getProducts()) {
-//                     Product product = pair.getProduct();
-//                     int quantity = pair.getQuantity();
-//                     if (product.getStockQuantity() >= quantity) {
-//                         product.setStockQuantity(product.getStockQuantity() - quantity);
-//                     } else {
-//                         System.out.println("Insufficient stock for product: " + product.getName());
-//                         return;
-//                     }
-//                 }
-//             } else if ("Cancelled".equalsIgnoreCase(status)) {
-//                 if ("Completed".equalsIgnoreCase(order.getStatus()) || "Pending".equalsIgnoreCase(order.getStatus())) {
-//                     for (ProductQuantityPair pair : order.getProducts()) {
-//                         Product product = pair.getProduct();
-//                         int quantity = pair.getQuantity();
-//                         product.setStockQuantity(product.getStockQuantity() + quantity);
-//                     }
-//                 }
-//             } else if ("Delivered".equalsIgnoreCase(status) && "Completed".equalsIgnoreCase(order.getStatus())) {
-//                 // No stock adjustment needed
-//             }
-//             order.setStatus(status);
-//         } else {
-//             System.out.println("Invalid Order");
-//         }
-//     }
-
-//     public Order getOrder(int orderId) {
-//         return orderList.stream().filter(order -> order.getOrderId() == orderId).findFirst().orElse(null);
-//     }
-
-//     public List<Order> getOrders() {
-//         return orderList;
-//     }
-// }
-
 package com.tns.onlineshopping.services;
 
 import com.tns.onlineshopping.entities.*;
@@ -72,9 +15,11 @@ public class OrderService {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
+            // Use customerId not customerId!
             PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO Orders (userId, status) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
-            ps.setInt(1, order.getCustomer().getUserId());
+                    "INSERT INTO Orders (customerId, status) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+            ps.setInt(1, order.getCustomer().getUserId()); // assuming Customer.customerId == customers.customerId
+                                                           // design
             ps.setString(2, "Pending");
             ps.executeUpdate();
 
@@ -88,7 +33,7 @@ public class OrderService {
 
             for (ProductQuantityPair pq : order.getProducts()) {
                 PreparedStatement ps2 = conn.prepareStatement(
-                    "INSERT INTO OrderProducts (orderId, productId, quantity) VALUES (?, ?, ?)");
+                        "INSERT INTO OrderProducts (orderId, productId, quantity) VALUES (?, ?, ?)");
                 ps2.setInt(1, orderId);
                 ps2.setInt(2, pq.getProduct().getProductId());
                 ps2.setInt(3, pq.getQuantity());
@@ -98,9 +43,20 @@ public class OrderService {
             conn.commit();
         } catch (SQLException e) {
             e.printStackTrace();
-            try { if (conn != null) conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null)
+                    conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null)
+                    conn.setAutoCommit(true);
+                conn.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -112,14 +68,15 @@ public class OrderService {
             // Retrieve order products and original status
             String origStatus = null;
             List<ProductQuantityPair> orderProducts = new ArrayList<>();
-            PreparedStatement ps = conn.prepareStatement("SELECT status, userId FROM Orders WHERE orderId = ?");
+            PreparedStatement ps = conn.prepareStatement("SELECT status, customerId FROM Orders WHERE orderId = ?");
             ps.setInt(1, orderId);
             ResultSet ors = ps.executeQuery();
             if (ors.next()) {
                 origStatus = ors.getString("status");
+                // If you need customerId, use ors.getInt("customerId");
             }
             PreparedStatement ps2 = conn.prepareStatement(
-                "SELECT productId, quantity FROM OrderProducts WHERE orderId = ?");
+                    "SELECT productId, quantity FROM OrderProducts WHERE orderId = ?");
             ps2.setInt(1, orderId);
             ResultSet rs = ps2.executeQuery();
             while (rs.next()) {
@@ -149,6 +106,7 @@ public class OrderService {
                     }
                 }
             }
+            // Delivered status: no stock adjustment needed
 
             // Update status
             PreparedStatement ps3 = conn.prepareStatement("UPDATE Orders SET status=? WHERE orderId=?");
@@ -159,30 +117,46 @@ public class OrderService {
             conn.commit();
         } catch (SQLException e) {
             e.printStackTrace();
-            try { if (conn != null) conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null)
+                    conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null)
+                    conn.setAutoCommit(true);
+                conn.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
     public Order getOrder(int orderId) {
         Order order = null;
         try (Connection conn = DBConnection.getConnection()) {
+            // Join on customerId, not customerId
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT o.orderId, o.status, o.userId, u.username, u.email, c.address FROM Orders o "+
-                "JOIN Users u ON o.userId=u.userId JOIN Customers c ON c.userId=u.userId WHERE o.orderId=?");
+                    "SELECT o.orderId, o.status, c.customerId as customerId, u.username, u.email, c.address " +
+                            "FROM Orders o " +
+                            "JOIN Customers c ON o.customerId = c.customerId " +
+                            "JOIN Users u ON c.customerId = u.userId " +
+                            "WHERE o.orderId=?");
             ps.setInt(1, orderId);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 Customer customer = new Customer(
-                    rs.getInt("userId"),
-                    rs.getString("username"),
-                    rs.getString("email"),
-                    rs.getString("address"));
+                        rs.getInt("customerId"),
+                        rs.getString("username"),
+                        rs.getString("email"),
+                        rs.getString("address"));
                 order = new Order(rs.getInt("orderId"), customer);
                 order.setStatus(rs.getString("status"));
                 // Load products
-                PreparedStatement ps2 = conn.prepareStatement("SELECT productId, quantity FROM OrderProducts WHERE orderId=?");
+                PreparedStatement ps2 = conn.prepareStatement(
+                        "SELECT productId, quantity FROM OrderProducts WHERE orderId=?");
                 ps2.setInt(1, orderId);
                 ResultSet rs2 = ps2.executeQuery();
                 while (rs2.next()) {
@@ -199,9 +173,9 @@ public class OrderService {
     public List<Order> getOrders() {
         List<Order> orders = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                "SELECT o.orderId FROM Orders o");
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(
+                        "SELECT o.orderId FROM Orders o");
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 orders.add(getOrder(rs.getInt("orderId")));
             }

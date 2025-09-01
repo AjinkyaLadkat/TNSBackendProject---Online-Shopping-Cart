@@ -1,7 +1,6 @@
 package com.tns.onlineshopping.entities;
-
-import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
 
 public class Order {
     private int orderId;
@@ -16,19 +15,37 @@ public class Order {
         this.status = "Pending";
     }
 
-    // Getters and setters
     public int getOrderId() { return orderId; }
     public void setOrderId(int orderId) { this.orderId = orderId; }
+
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
-    public List<ProductQuantityPair> getProducts() { return products; }
-    public void addProduct(ProductQuantityPair pair) { products.add(pair); }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
+    public List<ProductQuantityPair> getProducts() { return products; }
+
+    // ***** ADD THIS METHOD *****
+    public void setProducts(List<ProductQuantityPair> products) {
+        this.products = products;
+    }
+
+    public void addProduct(ProductQuantityPair pq) { this.products.add(pq); }
+
     @Override
     public String toString() {
-        return "Order [orderId=" + orderId + ", customer=" + customer.getUsername() + ", status=" + status + ", products=" + products + "]";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Order ID: ").append(orderId)
+          .append(", Status: ").append(status)
+          .append("\n");
+        for (ProductQuantityPair pq : products) {
+            Product p = pq.getProduct();
+            sb.append("  Product ID: ").append(p.getProductId())
+              .append(", Name: ").append(p.getName())
+              .append(", Quantity: ").append(pq.getQuantity())
+              .append("\n");
+        }
+        return sb.toString();
     }
 }
-
